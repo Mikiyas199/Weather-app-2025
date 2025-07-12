@@ -1,117 +1,50 @@
-const apiKey = '10577a9d6d20d50e737bb45bdf0d462f';
+const api = {
+  key: "fcc8de7015bbb202209bbf0261babf4c",
+  base: "https://api.openweathermap.org/data/2.5/"
+}
 
-const searchBtn = document.getElementById('searchBtn');
-const cityInput = document.getElementById('cityInput');
-const errorDiv = document.getElementById('error');
+const searchbox = document.querySelector('.search-box');
+searchbox.addEventListener('keypress', setQuery);
 
-const locationEl = document.getElementById('location');
-const dateTimeEl = document.getElementById('dateTime');
-const tempEl = document.getElementById('temp');
-const conditionEl = document.getElementById('condition');
-const hourlyEl = document.getElementById('hourly');
-const dailyEl = document.getElementById('daily');
-const weatherInfoEl = document.querySelector('.weather-info');
-
-searchBtn.addEventListener('click', () => {
-  const city = cityInput.value.trim();
-  if (city) {
-    fetchWeather(city);
-  }
-});
-
-cityInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    searchBtn.click();
-  }
-});
-
-async function fetchWeather(city) {
-  errorDiv.textContent = '';
-  weatherInfoEl.style.display = 'none';
-  hourlyEl.innerHTML = '';
-  dailyEl.innerHTML = '';
-
-  try {
-    // Get current weather and coordinates
-    const currentRes = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric`
-    );
-    if (!currentRes.ok) throw new Error('City not found');
-
-    const currentData = await currentRes.json();
-
-    // Extract lat & lon
-    const { lat, lon } = currentData.coord;
-
-    // Display current weather info
-    displayCurrentWeather(currentData);
-
-    // Fetch One Call API for hourly and daily forecast
-    const oneCallRes = await fetch(
-      `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&exclude=minutely,alerts&appid=${apiKey}&units=metric`
-    );
-    if (!oneCallRes.ok) throw new Error('Forecast not found');
-    const oneCallData = await oneCallRes.json();
-
-    displayHourly(oneCallData.hourly);
-    displayDaily(oneCallData.daily);
-
-    weatherInfoEl.style.display = 'block';
-  } catch (err) {
-    errorDiv.textContent = err.message;
+function setQuery(evt) {
+  if (evt.keyCode == 13) {
+    getResults(searchbox.value);
   }
 }
 
-function displayCurrentWeather(data) {
-  locationEl.textContent = `${data.name}, ${data.sys.country}`;
-  dateTimeEl.textContent = formatDate(new Date());
-  tempEl.textContent = `${Math.round(data.main.temp)}°C`;
-  conditionEl.textContent = capitalizeFirstLetter(data.weather[0].description);
+function getResults (query) {
+  fetch(`${api.base}weather?q=${query}&units=metric&APPID=${api.key}`)
+    .then(weather => {
+      return weather.json();
+    }).then(displayResults);
 }
 
-function displayHourly(hourly) {
-  // Show next 12 hours
-  const next12Hours = hourly.slice(0, 12);
-  next12Hours.forEach(hour => {
-    const date = new Date(hour.dt * 1000);
-    const hourStr = date.getHours() % 12 || 12;
-    const ampm = date.getHours() >= 12 ? 'PM' : 'AM';
+function displayResults (weather) {
+  let city = document.querySelector('.location .city');
+  city.innerText = `${weather.name}, ${weather.sys.country}`;
 
-    const hourDiv = document.createElement('div');
-    hourDiv.classList.add('hour');
-    hourDiv.innerHTML = `
-      <div class="hour-time">${hourStr} ${ampm}</div>
-      <div class="hour-temp">${Math.round(hour.temp)}°C</div>
-    `;
-    hourlyEl.appendChild(hourDiv);
-  });
+  let now = new Date();
+  let date = document.querySelector('.location .date');
+  date.innerText = dateBuilder(now);
+
+  let temp = document.querySelector('.current .temp');
+  temp.innerHTML = `${Math.round(weather.main.temp)}<span>°c</span>`;
+
+  let weather_el = document.querySelector('.current .weather');
+  weather_el.innerText = weather.weather[0].main;
+
+  let hilow = document.querySelector('.hi-low');
+  hilow.innerText = `${Math.round(weather.main.temp_min)}°c / ${Math.round(weather.main.temp_max)}°c`;
 }
 
-function displayDaily(daily) {
-  // Show next 7 days
-  const next7Days = daily.slice(1, 8); // skip current day
-  next7Days.forEach(day => {
-    const date = new Date(day.dt * 1000);
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+function dateBuilder (d) {
+  let months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  let days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-    const dayDiv = document.createElement('div');
-    dayDiv.classList.add('day');
-    dayDiv.innerHTML = `
-      <div class="day-name">${dayName}</div>
-      <div class="day-temp">Max: ${Math.round(day.temp.max)}°C</div>
-      <div class="day-temp">Min: ${Math.round(day.temp.min)}°C</div>
-    `;
-    dailyEl.appendChild(dayDiv);
-  });
-}
+  let day = days[d.getDay()];
+  let date = d.getDate();
+  let month = months[d.getMonth()];
+  let year = d.getFullYear();
 
-function formatDate(date) {
-  return date.toLocaleString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric',
-    hour: 'numeric', minute: 'numeric', hour12: true
-  });
-}
-
-function capitalizeFirstLetter(str) {
-  return str.charAt(0).toUpperCase() + str.slice(1);
+  return `${day} ${date} ${month} ${year}`;
 }
